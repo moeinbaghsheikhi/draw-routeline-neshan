@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="fa">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport"
+        content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Map</title>
+
+    <link rel="stylesheet" href="https://static.neshan.org/sdk/mapboxgl/v1.13.2/neshan-sdk/v1.1.5/index.css" />
+    <script src="https://static.neshan.org/sdk/mapboxgl/v1.13.2/neshan-sdk/v1.1.5/index.js"></script>
+    <style>
+    body {
+        height: 100vh;
+        width: 100vw;
+        margin: 0;
+    }
+
+    #map {
+        height: 100%;
+        width: 100%;
+    }
+    </style>
+</head>
+
+<body>
+    <div id="map" style="width: 600px; height: 450px; margin: 100px auto;"></div>
+
+</body>
+<script type="text/javascript" src="https://cdn.map.ir/web-sdk/1.4.2/js/jquery-3.2.1.min.js"></script>
+<script>
+$(document).ready(function() {
+    const map = new nmp_mapboxgl.Map({
+        mapType: nmp_mapboxgl.Map.mapTypes.neshanVector,
+        container: "map",
+        zoom: 12,
+        pitch: 0,
+        center: [51.389, 35.6892],
+        minZoom: 2,
+        maxZoom: 21,
+        trackResize: true,
+        mapKey: "web.4b802041fdb74c5da5da5390d20a4364",
+        poi: true,
+        traffic: true,
+        mapTypeControllerOptions: {
+            show: true,
+            position: 'bottom-left'
+        }
+    });
+
+
+    let marked = 0
+    let startLoc
+    let endLoc
+
+    map.on('click', function(e) {
+        console.log(e.lngLat)
+        // if (marked > 0) {
+        //     endLoc = [e.lngLat.lng, e.lngLat.lat]
+        //     drawRoute(startLoc, endLoc)
+        // } else {
+            var marker = new nmp_mapboxgl.Marker()
+                .setLngLat([e.lngLat.lng, e.lngLat.lat])
+                .addTo(map);
+
+            marked++;
+            startLoc = [e.lngLat.lng, e.lngLat.lat]
+            // setTimeout(() => {
+            //     alert("مبدا انتخاب شد. حالا مقصد را انتخاب کنید")
+            // }, 500);
+        // }
+        // برای سفارشی سازی نمایش نتیجه به جای متد بالا از متد زیر میتوان استفاده کرد
+
+    });
+
+    function drawRoute(start, end) {
+        $.ajax({
+            url: `https://api.neshan.org/v4/direction?type=car&origin=${start[0]},${start[1]}&destination=${end[0]},${end[1]}&alternative=false`,
+            method: 'GET',
+            headers: {
+                'Api-Key': 'service.d9718648c8884f34add64c2cb7db4d7a'
+            },
+            success: function(exampleResponse) {
+                var routes = [];
+                var points = [];
+
+                for (let k = 0; k < exampleResponse.routes.length; k++) {
+                    for (let j = 0; j < exampleResponse.routes[k].legs.length; j++) {
+                        for (let i = 0; i < exampleResponse.routes[k].legs[j].steps.length; i++) {
+
+                            var step = exampleResponse.routes[k].legs[j].steps[i]["polyline"];
+                            var point = exampleResponse.routes[k].legs[j].steps[i][
+                                "start_location"
+                            ];
+
+                            var route = polyline.decode(step, 5);
+
+                            route.map(item => {
+                                item.reverse()
+                            })
+
+                            routes.push(route);
+                            points.push(point);
+
+                        }
+                    }
+                }
+
+                var routeObj = {
+                    type: 'FeatureCollection',
+                    features: [{
+                        type: 'Feature',
+                        geometry: {
+                            type: 'MultiLineString',
+                            coordinates: routes
+                        }
+                    }]
+                };
+
+                var pointsObj = {
+                    type: 'FeatureCollection',
+                    features: [{
+                        type: "Feature",
+                        geometry: {
+                            "type": "MultiPoint",
+                            "coordinates": points
+                        }
+                    }]
+                };
+
+                neshan.on('load', function() {
+
+                    neshan.addSource('route', {
+                        type: 'geojson',
+                        data: routeObj
+                    });
+                    neshan.addSource('points1', {
+                        type: 'geojson',
+                        data: pointsObj
+                    });
+
+                    neshan.addLayer({
+                        id: 'route-line',
+                        type: 'line',
+                        source: 'route',
+                        layout: {
+                            'line-join': 'round',
+                            'line-cap': 'round'
+                        },
+                        paint: {
+                            'line-color': '#250ECD',
+                            'line-width': 9
+                        }
+                    });
+
+                    neshan.addLayer({
+                        id: 'points1',
+                        type: 'circle',
+                        source: 'points1',
+                        paint: {
+                            "circle-color": "#9fbef9",
+                            "circle-stroke-color": "#FFFFFF",
+                            "circle-stroke-width": 2,
+                            "circle-radius": 5
+                        }
+                    });
+                });
+
+            },
+            error: function(xhr) {
+                alert('خطا: خطا در دریافت آدرس. لطفاً دوباره تلاش کنید.');
+                console.error('Nominatim reverse error:', xhr);
+            }
+        });
+        marked = 0
+    }
+});
+</script>
+
+</html>
